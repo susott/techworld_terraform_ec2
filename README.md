@@ -27,6 +27,6 @@ public_key_location = "TODO location of your own (local) public key"
 # Usage
 
 * Make sure that you have terraform installed
-* Run `terraform plan` to see if anything is missing or what resources would be created
-* Run `terraform apply`to actually create resource. Afterwards, you should be able to ssh into the server and see an nginx start page on port 8080. The public IP address will be shown in the output section from the apply command on your terminal.
-* Run `terraform destroy` to clean up all the resources that got created.
+* Run `terraform plan` to see if your setup is working and what resources would be created
+* Run `terraform apply`to actually create the resources. Afterwards, you should be able to ssh into the server and see an nginx start page on port 8080. The public IP address will be shown in the output section from the apply command on your terminal. If you make changes to the code, run the apply command again to apply your changes.
+* Run `terraform destroy` to clean up all resources that got created from this code.
