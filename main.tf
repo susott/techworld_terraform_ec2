@@ -3,13 +3,6 @@ provider "aws" {
   region = "eu-central-1"
 }
 
-variable vpc_cidr_block {}
-variable subnet_cidr_block {}
-variable avail_zone {}
-variable env_prefix {}
-variable my_ip {}
-variable public_key_location {}
-
 resource "aws_vpc" "myapp-vpc" {
   cidr_block = var.vpc_cidr_block
   tags = {
@@ -17,102 +10,21 @@ resource "aws_vpc" "myapp-vpc" {
   }
 }
 
-resource "aws_subnet" "myapp-subnet-1" {
+module "myapp-subnet" {
+  source = "./modules/subnet"
+  subnet_cidr_block = var.subnet_cidr_block
+  avail_zone = var.avail_zone
+  env_prefix = var.env_prefix
   vpc_id = aws_vpc.myapp-vpc.id
-  cidr_block = var.subnet_cidr_block
-  availability_zone = var.avail_zone
-  tags = {
-    Name: "${var.env_prefix}-subnet-1"
-  }
+  # route_table_id = aws_vpc.myapp-vpc.myapp-route-table.id
 }
 
-resource "aws_route_table" "myapp-route-table" {
+module "myapp-server" {
+  source = "./modules/webserver"
+  public_key_location = var.public_key_location
+  my_ip = var.my_ip
+  avail_zone = var.avail_zone
+  env_prefix = var.env_prefix
   vpc_id = aws_vpc.myapp-vpc.id
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.myapp-igw.id
-  }
-  tags = {
-    Name: "${var.env_prefix}-rtb"
-  }
-}
-
-resource "aws_internet_gateway" "myapp-igw" {
-  vpc_id = aws_vpc.myapp-vpc.id
-}
-
-resource "aws_route_table_association" "association-rtb-subnet" {
-  subnet_id = aws_subnet.myapp-subnet-1.id
-  route_table_id = aws_route_table.myapp-route-table.id
-}
-
-resource "aws_security_group" "myapp-security-group" {
-  name = "myapp-sg"
-  vpc_id = aws_vpc.myapp-vpc.id
-  # incoming traffic
-  ingress {
-    from_port = 22
-    to_port = 22
-    protocol = "TCP"
-    cidr_blocks = [var.my_ip]
-  }
-  ingress {
-    from_port = 8080
-    to_port = 8080
-    protocol = "TCP"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  # outgoing traffic
-  egress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-
-  }
-  tags = {
-    Name: "${var.env_prefix}-sg"
-  }
-}
-
-data "aws_ami" "latest-amazon-linux-image" {
-  most_recent = true
-  owners = ["amazon"]
-  filter {
-    name = "name"
-    values = ["amzn2-ami-kernel-*-x86_64-gp2"]
-  }
-  filter {
-    name = "virtualization-type"
-    values = ["hvm"]
-  }
-
-}
-
-output "aws_ami_id" {
-  value = data.aws_ami.latest-amazon-linux-image
-}
-
-output "ec2_public_ip" {
-  value = aws_instance.myapp-server.public_ip
-}
-
-resource "aws_key_pair" "ssh-key" {
-  key_name = "server-key"
-  public_key = file(var.public_key_location)
-}
-
-resource "aws_instance" "myapp-server" {
-  ami = data.aws_ami.latest-amazon-linux-image.id
-  instance_type = "t2.micro"
-  subnet_id = aws_subnet.myapp-subnet-1.id
-  vpc_security_group_ids = [aws_security_group.myapp-security-group.id]
-  availability_zone = var.avail_zone
-  associate_public_ip_address = true
-  key_name = aws_key_pair.ssh-key.key_name
-  user_data = file("entry_script.sh")
-  user_data_replace_on_change = true
-  tags = {
-    Name: "${var.env_prefix}-server"
-  }
+  subnet_id = module.myapp-subnet.subnet.id
 }
